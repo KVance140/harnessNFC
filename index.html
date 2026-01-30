@@ -45,20 +45,18 @@ let reader;
 async function startScan() {
   reader = new NDEFReader();
   await reader.scan();
-  reader.onreading = event => {
-    const serial = event.message.records[0].data
-      ? new TextDecoder().decode(event.message.records[0].data)
-      : "UNKNOWN";
+  reader.onreading = ({ serialNumber }) => {
+  const serial = serialNumber; // This is the NFC tag MAC/UID
 
-    const mode = document.getElementById("mode").value;
+  const mode = document.getElementById("mode").value;
 
-    if (mode === "continue") {
-      addRecord(serial);
-    } else {
-      currentSerial = serial;
-      document.getElementById("editForm").style.display = "block";
-    }
-  };
+  if (mode === "continue") {
+    addRecord(serial);
+  } else {
+    currentSerial = serial;
+    document.getElementById("editForm").style.display = "block";
+  }
+};
 }
 
 function addRecord(serial, location="", size="", shift="") {
