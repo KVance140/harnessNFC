@@ -71,10 +71,7 @@
 
 <div id="status" class="ready">Ready to Scan</div>
 
-<select id="mode">
-  <option value="continue">Scan & Continue</option>
-  <option value="edit">Scan & Edit</option>
-</select>
+
 
 <table>
   <thead>
@@ -91,15 +88,16 @@
 
 <div id="editForm" style="display:none;">
   <h4>Edit Harness</h4>
-  <input id="location" placeholder="Warehouse Location">
-  <select name="location" id="location" placeholder="Warehouse Location">
+  <select required name="location" id="location" placeholder="Warehouse Location">
+    <option value="" disabled selected hidden>Warehouse Location</option>
     <option value="Warehouse">Warehouse</option>
     <option value="MBP">MBP</option>
     <option value="ICQA">ICQA</option>
     <option value="EF">EF</option>
     <option value="Other">Other</option>
   </select>
-  <select name="size" id="size" placeholder="Harness Size">
+  <select required name="size" id="size" placeholder="Harness Size">
+    <option value="" disabled selected hidden>Harness Size</option>
     <option value="U">Universal</option>
     <option value="XS">Extra Small</option>
     <option value="S">Small</option>
@@ -107,7 +105,8 @@
     <option value="L">Large</option>
     <option value="XL">Extra Large</option>
   </select>
-  <select name="shift" id="shift" placeholder="Shift">
+  <select required name="shift" id="shift" placeholder="Shift">
+    <option value="" disabled selected hidden>Shift</option>
     <option value="A1">A1</option>
     <option value="A2">A2</option>
     <option value="B1">B1</option>
@@ -118,6 +117,10 @@
 </div>
 
 <div id="bottomBar">
+  <select id="mode">
+    <option value="continue">Scan & Continue</option>
+    <option value="edit">Scan & Edit</option>
+  </select>
   <button id="scanBtn" onclick="toggleScan()">Start Scanning</button>
   <button onclick="exportCSV()">Export CSV</button>
 </div>
