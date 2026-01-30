@@ -67,7 +67,7 @@
 
 <body>
 
-<h3>NFC Harness Inventory - T3803</h3>
+<h3>NFC Harness Inventory - T3803 - Version 1</h3>
 
 <div id="status" class="ready">Ready to Scan</div>
 
@@ -140,7 +140,6 @@ function setStatus(text, css) {
   s.className = css;
 }
 
-/* ✅ Correct byte-wise serial reversal */
 function formatSerial(serial) {
   const clean = serial.replace(/:/g, "").toUpperCase();
   return clean.match(/.{2}/g).reverse().join("");
@@ -159,23 +158,26 @@ async function toggleScan() {
     document.getElementById("scanBtn").textContent = "Stop Scanning";
     setStatus("Scanning… Tap NFC Tag", "scanning");
 
-    reader.onreading = ({ serialNumber }) => {
-      const serial = formatSerial(serialNumber);
-      const mode = document.getElementById("mode").value;
+reader.onreading = ({ serialNumber }) => {
+  if (!scanning) return;   
 
-      if (mode === "continue") {
-        addRecord(serial);
-      } else {
-        currentSerial = serial;
-        document.getElementById("editForm").style.display = "block";
-      }
-    };
+  const serial = formatSerial(serialNumber);
+  const mode = document.getElementById("mode").value;
+
+  if (mode === "continue") {
+    addRecord(serial);
   } else {
-    reader = null;
-    scanning = false;
-    document.getElementById("scanBtn").textContent = "Start Scanning";
-    setStatus("Scanning Stopped", "stopped");
+    currentSerial = serial;
+    document.getElementById("editForm").style.display = "block";
   }
+};
+  } else {
+  scanning = false;
+
+  document.getElementById("scanBtn").textContent = "Start Scanning";
+  setStatus("Scanning Stopped", "stopped");
+}
+
 }
 
 function addRecord(serial, location="", size="", shift="") {
