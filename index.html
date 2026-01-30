@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <title>NFC Harness Inventory</title>
+</head>
+<body>
+
+<h3>NFC Harness Inventory</h3>
+
+<select id="mode">
+  <option value="continue">Scan & Continue</option>
+  <option value="edit">Scan & Edit</option>
+</select>
+
+<button onclick="startScan()">Start Scanning</button>
+<button onclick="exportCSV()">Export CSV</button>
+
+<table border="1" id="table">
+  <thead>
+    <tr>
+      <th>Serial</th>
+      <th>Location</th>
+      <th>Size</th>
+      <th>Shift</th>
+      <th>Timestamp</th>
+    </tr>
+  </thead>
+  <tbody></tbody>
+</table>
+
+<div id="editForm" style="display:none;">
+  <h4>Edit Harness</h4>
+  <input id="location" placeholder="Location"><br>
+  <input id="size" placeholder="Size"><br>
+  <input id="shift" placeholder="Shift"><br>
+  <button onclick="saveEdit()">Save</button>
+</div>
+
+<script>
+let records = [];
+let currentSerial = null;
+let reader;
+
+async function startScan() {
+  reader = new NDEFReader();
+  await reader.scan();
+  reader.onreading = event => {
+    const serial = event.message.records[0].data
+      ? new TextDecoder().decode(event.message.records[0].data)
+      : "UNKNOWN";
+
+    const mode = document.getElementById("mode").value;
+
+    if (mode === "continue") {
+      addRecord(serial);
+    } else {
+      currentSerial = serial;
+      document.getElementById("editForm").style.display = "block";
+    }
+  };
+}
+
+function addRecord(serial, location="", size="", shift="") {
+  records.push({
+    serial,
+    location,
+    size,
+    shift,
+    time: new Date().toISOString()
+  });
+  renderTable();
+}
+
+function saveEdit() {
+  addRecord(
+    currentSerial,
+    location.value,
+    size.value,
+    shift.value
+  );
+  editForm.style.display = "none";
+}
+
+function renderTable() {
+  const tbody = document.querySelector("#table tbody");
+  tbody.innerHTML = "";
+  records.forEach(r => {
+    tbody.innerHTML += `
+      <tr>
+        <td>${r.serial}</td>
+        <td>${r.location}</td>
+        <td>${r.size}</td>
+        <td>${r.shift}</td>
+        <td>${r.time}</td>
+      </tr>`;
+  });
+}
+
+function exportCSV() {
+  const header = "Serial,Location,Size,Shift,Timestamp\n";
+  const rows = records.map(r =>
+    `${r.serial},${r.location},${r.size},${r.shift},${r.time}`
+  ).join("\n");
+
+  const blob = new Blob([header + rows], { type: "text/csv" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "harness_inventory.csv";
+  a.click();
+}
+</script>
+
+</body>
+</html>
