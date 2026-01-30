@@ -71,8 +71,6 @@
 
 <div id="status" class="ready">Ready to Scan</div>
 
-
-
 <table>
   <thead>
     <tr>
@@ -80,7 +78,7 @@
       <th>Location</th>
       <th>Size</th>
       <th>Shift</th>
-      <th>Date</th>
+      <th>Date Scanned</th>
     </tr>
   </thead>
   <tbody id="tableBody"></tbody>
@@ -88,7 +86,8 @@
 
 <div id="editForm" style="display:none;">
   <h4>Edit Harness</h4>
-  <select required name="location" id="location" placeholder="Warehouse Location">
+
+  <select id="location" required>
     <option value="" disabled selected hidden>Warehouse Location</option>
     <option value="Warehouse">Warehouse</option>
     <option value="MBP">MBP</option>
@@ -96,7 +95,8 @@
     <option value="EF">EF</option>
     <option value="Other">Other</option>
   </select>
-  <select required name="size" id="size" placeholder="Harness Size">
+
+  <select id="size" required>
     <option value="" disabled selected hidden>Harness Size</option>
     <option value="U">Universal</option>
     <option value="XS">Extra Small</option>
@@ -105,7 +105,8 @@
     <option value="L">Large</option>
     <option value="XL">Extra Large</option>
   </select>
-  <select required name="shift" id="shift" placeholder="Shift">
+
+  <select id="shift" required>
     <option value="" disabled selected hidden>Shift</option>
     <option value="A1">A1</option>
     <option value="A2">A2</option>
@@ -113,6 +114,7 @@
     <option value="B2">B2</option>
     <option value="EF">E&F</option>
   </select>
+
   <button onclick="saveEdit()">Save</button>
 </div>
 
@@ -121,6 +123,7 @@
     <option value="continue">Scan & Continue</option>
     <option value="edit">Scan & Edit</option>
   </select>
+
   <button id="scanBtn" onclick="toggleScan()">Start Scanning</button>
   <button onclick="exportCSV()">Export CSV</button>
 </div>
@@ -137,8 +140,10 @@ function setStatus(text, css) {
   s.className = css;
 }
 
+/* ✅ Correct byte-wise serial reversal */
 function formatSerial(serial) {
-  return serial.replace(/:/g, "").split("").reverse().join("");
+  const clean = serial.replace(/:/g, "").toUpperCase();
+  return clean.match(/.{2}/g).reverse().join("");
 }
 
 function getDateOnly() {
@@ -162,7 +167,7 @@ async function toggleScan() {
         addRecord(serial);
       } else {
         currentSerial = serial;
-        editForm.style.display = "block";
+        document.getElementById("editForm").style.display = "block";
       }
     };
   } else {
@@ -185,21 +190,23 @@ function addRecord(serial, location="", size="", shift="") {
 }
 
 function saveEdit() {
-  addRecord(
-    currentSerial,
-    location.value,
-    size.value,
-    shift.value
-  );
-  location.value = "";
-  size.value = "";
-  shift.value = "";
-  editForm.style.display = "none";
+  const locationVal = document.getElementById("location").value;
+  const sizeVal = document.getElementById("size").value;
+  const shiftVal = document.getElementById("shift").value;
+
+  addRecord(currentSerial, locationVal, sizeVal, shiftVal);
+
+  document.getElementById("location").selectedIndex = 0;
+  document.getElementById("size").selectedIndex = 0;
+  document.getElementById("shift").selectedIndex = 0;
+
+  document.getElementById("editForm").style.display = "none";
 }
 
 function renderTable() {
   const tbody = document.getElementById("tableBody");
   tbody.innerHTML = "";
+
   records.forEach(r => {
     tbody.innerHTML += `
       <tr>
