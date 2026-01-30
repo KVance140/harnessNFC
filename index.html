@@ -2,16 +2,17 @@
 <html>
 <head>
 <meta charset="UTF-8" />
-<title>NFC Harness Inventory</title>
+<title>NFC Harness Inventory T3803</title>
 
 <style>
   body {
     font-family: Arial, sans-serif;
     padding: 16px;
+    padding-bottom: 140px;
     font-size: 18px;
   }
 
-  button, select, input {
+  select, input {
     font-size: 20px;
     padding: 14px;
     margin: 8px 0;
@@ -39,11 +40,27 @@
   th, td {
     border: 1px solid #ccc;
     padding: 10px;
-    text-align: left;
   }
 
   #editForm {
     margin-top: 16px;
+  }
+
+  #bottomBar {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: #fff;
+    border-top: 2px solid #ccc;
+    padding: 12px;
+  }
+
+  button {
+    font-size: 22px;
+    padding: 16px;
+    width: 100%;
+    margin-top: 8px;
   }
 </style>
 </head>
@@ -59,10 +76,6 @@
   <option value="edit">Scan & Edit</option>
 </select>
 
-<button onclick="startScan()">Start Scanning</button>
-<button onclick="stopScan()">Stop Scanning</button>
-<button onclick="exportCSV()">Export CSV</button>
-
 <table>
   <thead>
     <tr>
@@ -70,7 +83,7 @@
       <th>Location</th>
       <th>Size</th>
       <th>Shift</th>
-      <th>Timestamp</th>
+      <th>Date</th>
     </tr>
   </thead>
   <tbody id="tableBody"></tbody>
@@ -79,26 +92,34 @@
 <div id="editForm" style="display:none;">
   <h4>Edit Harness</h4>
   <input id="location" placeholder="Warehouse Location">
-  <input list="size" name="size" placeholder="Harness Size">
-    <datalist id="size">
-      <option value="XXS">XXS</option>
-      <option value="XS">XS</option>
-      <option value="Universal">Universal</option>
-      <option value="Medium">Medium</option>
-      <option value="Large">Large</option>
-      <option value="XL">XL</option>
-      <option value="XXL">XXL</option>
-  </datalist>
-  <input list="shift" name="shift" placeholder="Shift">
-    <select id="shift">
-      <option value="A1">A1</option>
-      <option value="A2">A2</option>
-      <option value="B1">B1</option>
-      <option value="B2">B2</option>
-      <option value="EF">E&F</option>
-      <option value="Other">Other</option>
+  <select name="location" id="location" placeholder="Warehouse Location">
+    <option value="Warehouse">Warehouse</option>
+    <option value="MBP">MBP</option>
+    <option value="ICQA">ICQA</option>
+    <option value="EF">EF</option>
+    <option value="Other">Other</option>
+  </select>
+  <select name="size" id="size" placeholder="Harness Size">
+    <option value="U">Universal</option>
+    <option value="XS">Extra Small</option>
+    <option value="S">Small</option>
+    <option value="M">Medium</option>
+    <option value="L">Large</option>
+    <option value="XL">Extra Large</option>
+  </select>
+  <select name="shift" id="shift" placeholder="Shift">
+    <option value="A1">A1</option>
+    <option value="A2">A2</option>
+    <option value="B1">B1</option>
+    <option value="B2">B2</option>
+    <option value="EF">E&F</option>
   </select>
   <button onclick="saveEdit()">Save</button>
+</div>
+
+<div id="bottomBar">
+  <button id="scanBtn" onclick="toggleScan()">Start Scanning</button>
+  <button onclick="exportCSV()">Export CSV</button>
 </div>
 
 <script>
@@ -107,36 +128,46 @@ let scanning = false;
 let records = [];
 let currentSerial = null;
 
-function setStatus(text, cssClass) {
-  const status = document.getElementById("status");
-  status.textContent = text;
-  status.className = cssClass;
+function setStatus(text, css) {
+  const s = document.getElementById("status");
+  s.textContent = text;
+  s.className = css;
 }
 
-async function startScan() {
-  if (scanning) return;
-
-  reader = new NDEFReader();
-  await reader.scan();
-  scanning = true;
-  setStatus("Scanning… Tap NFC Tag", "scanning");
-
-  reader.onreading = ({ serialNumber }) => {
-    const mode = document.getElementById("mode").value;
-
-    if (mode === "continue") {
-      addRecord(serialNumber);
-    } else {
-      currentSerial = serialNumber;
-      document.getElementById("editForm").style.display = "block";
-    }
-  };
+function formatSerial(serial) {
+  return serial.replace(/:/g, "").split("").reverse().join("");
 }
 
-function stopScan() {
-  reader = null;
-  scanning = false;
-  setStatus("Scanning Stopped", "stopped");
+function getDateOnly() {
+  return new Date().toLocaleDateString();
+}
+
+async function toggleScan() {
+  if (!scanning) {
+    reader = new NDEFReader();
+    await reader.scan();
+    scanning = true;
+
+    document.getElementById("scanBtn").textContent = "Stop Scanning";
+    setStatus("Scanning… Tap NFC Tag", "scanning");
+
+    reader.onreading = ({ serialNumber }) => {
+      const serial = formatSerial(serialNumber);
+      const mode = document.getElementById("mode").value;
+
+      if (mode === "continue") {
+        addRecord(serial);
+      } else {
+        currentSerial = serial;
+        editForm.style.display = "block";
+      }
+    };
+  } else {
+    reader = null;
+    scanning = false;
+    document.getElementById("scanBtn").textContent = "Start Scanning";
+    setStatus("Scanning Stopped", "stopped");
+  }
 }
 
 function addRecord(serial, location="", size="", shift="") {
@@ -145,7 +176,7 @@ function addRecord(serial, location="", size="", shift="") {
     location,
     size,
     shift,
-    time: new Date().toISOString()
+    date: getDateOnly()
   });
   renderTable();
 }
@@ -157,7 +188,6 @@ function saveEdit() {
     size.value,
     shift.value
   );
-
   location.value = "";
   size.value = "";
   shift.value = "";
@@ -167,7 +197,6 @@ function saveEdit() {
 function renderTable() {
   const tbody = document.getElementById("tableBody");
   tbody.innerHTML = "";
-
   records.forEach(r => {
     tbody.innerHTML += `
       <tr>
@@ -175,15 +204,15 @@ function renderTable() {
         <td>${r.location}</td>
         <td>${r.size}</td>
         <td>${r.shift}</td>
-        <td>${r.time}</td>
+        <td>${r.date}</td>
       </tr>`;
   });
 }
 
 function exportCSV() {
-  const header = "Serial,Location,Size,Shift,Timestamp\n";
+  const header = "Serial,Location,Size,Shift,Date\n";
   const rows = records.map(r =>
-    `${r.serial},${r.location},${r.size},${r.shift},${r.time}`
+    `${r.serial},${r.location},${r.size},${r.shift},${r.date}`
   ).join("\n");
 
   const blob = new Blob([header + rows], { type: "text/csv" });
