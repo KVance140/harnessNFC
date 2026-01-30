@@ -67,7 +67,7 @@
 
 <body>
 
-<h3>NFC Harness Inventory - T3803 - Version 1</h3>
+<h3>NFC Harness Inventory - T3803 - Version 1.0.1</h3>
 
 <div id="status" class="ready">Ready to Scan</div>
 
@@ -129,6 +129,7 @@
 </div>
 
 <script>
+let scanSession = 0;
 let reader = null;
 let scanning = false;
 let records = [];
@@ -154,13 +155,16 @@ async function toggleScan() {
     reader = new NDEFReader();
     await reader.scan();
     scanning = true;
+    scanSession++;
 
     document.getElementById("scanBtn").textContent = "Stop Scanning";
     setStatus("Scanning… Tap NFC Tag", "scanning");
 
+    const thisSession = scanSession;
+    
 reader.onreading = ({ serialNumber }) => {
   if (!scanning) return;   
-
+  if (thisSession !== scanSession) return;
   const serial = formatSerial(serialNumber);
   const mode = document.getElementById("mode").value;
 
