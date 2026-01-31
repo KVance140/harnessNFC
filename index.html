@@ -8,7 +8,7 @@
   body {
     font-family: Arial, sans-serif;
     padding: 16px;
-    padding-bottom: 140px;
+    padding-bottom: 180px;
     font-size: 18px;
   }
 
@@ -20,7 +20,6 @@
   }
 
   #status {
-    font-size: 25px;
     font-weight: bold;
     padding: 14px;
     margin-bottom: 12px;
@@ -28,12 +27,11 @@
     border-radius: 8px;
   }
 
-  .ready { background: #e6f4ea; color: #1e7e34; }
-  .scanning { background: #e7f1ff; color: #0d6efd; }
-  .stopped { background: #fdecea; color: #b02a37; }
+  .ready { background:#e6f4ea; color:#1e7e34; }
+  .scanning { background:#e7f1ff; color:#0d6efd; }
+  .stopped { background:#fdecea; color:#b02a37; }
 
   table {
-    font-size: 20px;
     width: 100%;
     border-collapse: collapse;
     margin-top: 16px;
@@ -69,7 +67,7 @@
 
 <body>
 
-<h3>NFC Harness Inventory - T3803 - Version 1.0.2</h3>
+<h3>NFC Harness Inventory - T3803 - Version 2</h3>
 
 <div id="status" class="ready">Ready to Scan</div>
 
@@ -80,7 +78,7 @@
       <th>Location</th>
       <th>Size</th>
       <th>Shift</th>
-      <th>Date Scanned</th>
+      <th>Date</th>
     </tr>
   </thead>
   <tbody id="tableBody"></tbody>
@@ -89,32 +87,32 @@
 <div id="editForm" style="display:none;">
   <h4>Edit Harness</h4>
 
-  <select id="location" required>
-    <option value="" disabled selected hidden>Location</option>
-    <option value="Warehouse">Warehouse</option>
-    <option value="MBP">MBP</option>
-    <option value="ICQA">ICQA</option>
-    <option value="EF">EF</option>
-    <option value="Other">Other</option>
+  <select id="location">
+    <option value="" disabled selected hidden>Warehouse Location</option>
+    <option>Warehouse</option>
+    <option>MBP</option>
+    <option>ICQA</option>
+    <option>EF</option>
+    <option>Other</option>
   </select>
 
-  <select id="size" required>
+  <select id="size">
     <option value="" disabled selected hidden>Harness Size</option>
-    <option value="U">Universal</option>
-    <option value="XS">Extra Small</option>
-    <option value="S">Small</option>
-    <option value="M">Medium</option>
-    <option value="L">Large</option>
-    <option value="XL">Extra Large</option>
+    <option>U</option>
+    <option>XS</option>
+    <option>S</option>
+    <option>M</option>
+    <option>L</option>
+    <option>XL</option>
   </select>
 
-  <select id="shift" required>
+  <select id="shift">
     <option value="" disabled selected hidden>Shift</option>
-    <option value="A1">A1</option>
-    <option value="A2">A2</option>
-    <option value="B1">B1</option>
-    <option value="B2">B2</option>
-    <option value="EF">E&F</option>
+    <option>A1</option>
+    <option>A2</option>
+    <option>B1</option>
+    <option>B2</option>
+    <option>E&F</option>
   </select>
 
   <button onclick="saveEdit()">Save</button>
@@ -127,20 +125,38 @@
   </select>
 
   <button id="scanBtn" onclick="toggleScan()">Start Scanning</button>
+  <button onclick="selectSharedFolder()">Select Shared Folder</button>
+  <button onclick="loadFromSharedFolder()">Load From Shared Folder</button>
   <button onclick="exportCSV()">Export CSV</button>
-  <!--<button onclick="emailCSV()">Email CSV</button>-->
   <button onclick="clearRecords()">Clear All Records</button>
-
 </div>
 
 <script>
-let scanSession = 0;
 let reader = null;
 let scanning = false;
 let records = [];
 let currentSerial = null;
+let sharedFolderHandle = null;
 
+/* ---------- Utilities ---------- */
 
+function setStatus(text, css) {
+  const s = document.getElementById("status");
+  s.textContent = text;
+  s.className = css;
+}
+
+function normalizeSerial(serial) {
+  // Remove colons, split into bytes, reverse byte order
+  const clean = serial.replace(/:/g, "");
+  return clean.match(/.{2}/g).reverse().join("").toUpperCase();
+}
+
+function getDateOnly() {
+  return new Date().toLocaleDateString();
+}
+
+/* ---------- Persistence ---------- */
 
 function saveRecords() {
   localStorage.setItem("harnessRecords", JSON.stringify(records));
@@ -154,55 +170,71 @@ function loadRecords() {
   }
 }
 
+/* ---------- Shared Folder ---------- */
 
-function setStatus(text, css) {
-  const s = document.getElementById("status");
-  s.textContent = text;
-  s.className = css;
+async function selectSharedFolder() {
+  sharedFolderHandle = await window.showDirectoryPicker();
 }
 
-function formatSerial(serial) {
-  const clean = serial.replace(/:/g, "").toUpperCase();
-  return clean.match(/.{2}/g).reverse().join("");
+async function writeLiveJSON() {
+  if (!sharedFolderHandle) return;
+
+  const fileHandle = await sharedFolderHandle.getFileHandle(
+    "harness_inventory_live.json",
+    { create: true }
+  );
+
+  const writable = await fileHandle.createWritable();
+  await writable.write(JSON.stringify(records, null, 2));
+  await writable.close();
 }
 
-function getDateOnly() {
-  return new Date().toLocaleDateString();
+async function loadFromSharedFolder() {
+  const [fileHandle] = await window.showOpenFilePicker({
+    types: [{ description: "JSON", accept: { "application/json": [".json"] } }]
+  });
+
+  const file = await fileHandle.getFile();
+  records = JSON.parse(await file.text());
+  saveRecords();
+  renderTable();
 }
+
+/* ---------- NFC ---------- */
 
 async function toggleScan() {
-  if (!scanning) {
-    reader = new NDEFReader();
-    await reader.scan();
-    scanning = true;
-    scanSession++;
-
-    document.getElementById("scanBtn").textContent = "Stop Scanning";
-    setStatus("Scanning… Tap NFC Tag", "scanning");
-
-    const thisSession = scanSession;
-    
-reader.onreading = ({ serialNumber }) => {
-  if (!scanning) return;   
-  if (thisSession !== scanSession) return;
-  const serial = formatSerial(serialNumber);
-  const mode = document.getElementById("mode").value;
-
-  if (mode === "continue") {
-    addRecord(serial);
-  } else {
-    currentSerial = serial;
-    document.getElementById("editForm").style.display = "block";
+  if (scanning) {
+    reader.onreading = null;
+    reader = null;
+    scanning = false;
+    document.getElementById("scanBtn").textContent = "Start Scanning";
+    setStatus("Scanning Stopped", "stopped");
+    return;
   }
-};
-  } else {
-  scanning = false;
 
-  document.getElementById("scanBtn").textContent = "Start Scanning";
-  setStatus("Scanning Stopped", "stopped");
+  reader = new NDEFReader();
+  await reader.scan();
+  scanning = true;
+
+  document.getElementById("scanBtn").textContent = "Stop Scanning";
+  setStatus("Scanning… Tap NFC Tag", "scanning");
+
+  reader.onreading = ({ serialNumber }) => {
+    if (!scanning) return;
+
+    const serial = normalizeSerial(serialNumber);
+    const mode = document.getElementById("mode").value;
+
+    if (mode === "continue") {
+      addRecord(serial);
+    } else {
+      currentSerial = serial;
+      document.getElementById("editForm").style.display = "block";
+    }
+  };
 }
 
-}
+/* ---------- Records ---------- */
 
 function addRecord(serial, location="", size="", shift="") {
   records.push({
@@ -212,46 +244,27 @@ function addRecord(serial, location="", size="", shift="") {
     shift,
     date: getDateOnly()
   });
-  saveRecords(); 
+
+  saveRecords();
+  writeLiveJSON();
   renderTable();
 }
 
-
 function saveEdit() {
-  const locationVal = document.getElementById("location").value;
-  const sizeVal = document.getElementById("size").value;
-  const shiftVal = document.getElementById("shift").value;
+  addRecord(
+    currentSerial,
+    location.value,
+    size.value,
+    shift.value
+  );
 
-  addRecord(currentSerial, locationVal, sizeVal, shiftVal);
-
-  document.getElementById("location").selectedIndex = 0;
-  document.getElementById("size").selectedIndex = 0;
-  document.getElementById("shift").selectedIndex = 0;
-
+  location.value = "";
+  size.value = "";
+  shift.value = "";
   document.getElementById("editForm").style.display = "none";
 }
-  
-function emailCSV() {
-  if (!records.length) {
-    alert("No records to email.");
-    return;
-  }
 
-  const header = "Serial,Location,Size,Shift,Date\n";
-  const rows = records.map(r =>
-    `${r.serial},${r.location},${r.size},${r.shift},${r.date}`
-  ).join("\n");
-
-  const blob = new Blob([header + rows], { type: "text/csv" });
-  const file = new File([blob], "harness_inventory.csv", { type: "text/csv" });
-
-  const url = URL.createObjectURL(file);
-
-  const a = document.createElement("a");
-  a.href = `mailto:?subject=Harness Inventory Export&body=Please find the attached harness inventory CSV.\n\n(If attachment is not supported, use Export CSV instead.)`;
-  a.click();
-}
-
+/* ---------- Table ---------- */
 
 function renderTable() {
   const tbody = document.getElementById("tableBody");
@@ -269,16 +282,7 @@ function renderTable() {
   });
 }
 
-function clearRecords() {
-  if (!confirm("This will permanently delete all scanned records on this device. Continue?")) {
-    return;
-  }
-
-  records = [];
-  localStorage.removeItem("harnessRecords");
-  renderTable();
-}
-
+/* ---------- Export / Clear ---------- */
 
 function exportCSV() {
   const header = "Serial,Location,Size,Shift,Date\n";
@@ -292,8 +296,17 @@ function exportCSV() {
   a.download = "harness_inventory.csv";
   a.click();
 }
-loadRecords();
 
+function clearRecords() {
+  if (!confirm("Delete all records on this device?")) return;
+  records = [];
+  localStorage.removeItem("harnessRecords");
+  renderTable();
+}
+
+/* ---------- Init ---------- */
+
+loadRecords();
 </script>
 
 </body>
